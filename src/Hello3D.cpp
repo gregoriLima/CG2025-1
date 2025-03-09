@@ -56,7 +56,12 @@ const GLchar* fragmentShaderSource = "#version 450\n"
 "color = finalColor;\n"
 "}\n\0";
 
-bool rotateX=false, rotateY=false, rotateZ=false;
+bool rotateXLeft=false, rotateXRight=false, rotateYUp=false, rotateYDown=false, rotateZPlus=false, rotateZMinus=false;
+
+// Escala inicial de 1
+float scale = 0.6f;
+// Incremento da escala
+const float scaleFactor = 0.1f;
 
 // Função MAIN
 int main()
@@ -78,7 +83,7 @@ int main()
 //#endif
 
 	// Criação da janela GLFW
-	GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, "Ola 3D -- Rossana!", nullptr, nullptr);
+	GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, "Ola 3D -> Grégori Fernandes de Lima - CC", nullptr, nullptr);
 	glfwMakeContextCurrent(window);
 
 	// Fazendo o registro da função de callback para a janela GLFW
@@ -113,13 +118,28 @@ int main()
 	glUseProgram(shaderID);
 
 	glm::mat4 model = glm::mat4(1); //matriz identidade;
+	glm::mat4 modelCubo2 = glm::mat4(1); //matriz identidade do cubo 2
+
 	GLint modelLoc = glGetUniformLocation(shaderID, "model");
 	//
 	model = glm::rotate(model, /*(GLfloat)glfwGetTime()*/glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+	modelCubo2 = glm::rotate(modelCubo2, glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+	
 	glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
+	glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(modelCubo2)); // cubo 2
 
 	glEnable(GL_DEPTH_TEST);
 
+	// Variáveis para acumular a rotação de cada eixo separadamente
+	//   para evitar que ao se modificar o eixo de rotação a rotação anterior seja zerada 
+	//     e não perder a rotação dos eixos anteriores
+	float rotationX = 0.0f;
+	float rotationY = 0.0f;
+	float rotationZ = 0.0f;
+
+	float lastTime = glfwGetTime();
+	// acumula o ângulo de rotação para evitar que a rotação da imagem não seja baseada em um estado inicial
+	float rotationAngle = 0.0f; // ângulo acumulado
 
 	// Loop da aplicação - "game loop"
 	while (!glfwWindowShouldClose(window))
@@ -134,36 +154,66 @@ int main()
 		glLineWidth(10);
 		glPointSize(20);
 
-		float angle = (GLfloat)glfwGetTime();
+		float currentTime = glfwGetTime();
+		float deltaTime = currentTime - lastTime;
+		lastTime = currentTime;
 
-		model = glm::mat4(1); 
-		if (rotateX)
-		{
-			model = glm::rotate(model, angle, glm::vec3(1.0f, 0.0f, 0.0f));
-			
-		}
-		else if (rotateY)
-		{
-			model = glm::rotate(model, angle, glm::vec3(0.0f, 1.0f, 0.0f));
+		// Atualiza os ângulos conforme o input
+		float rotationSpeed = glm::radians(90.0f); // 90 graus por segundo
 
-		}
-		else if (rotateZ)
-		{
-			model = glm::rotate(model, angle, glm::vec3(0.0f, 0.0f, 1.0f));
 
+		if (rotateXLeft) {
+			rotationX += rotationSpeed * deltaTime; // aumenta no tempo
 		}
+		if (rotateXRight) {
+			rotationX -= rotationSpeed * deltaTime; // diminui no tempo
+		}
+		if (rotateYUp) {
+			rotationY += rotationSpeed * deltaTime; // aumenta no tempo
+		}
+		if (rotateYDown) {
+			rotationY -= rotationSpeed * deltaTime; // aumenta no tempo
+		}
+		if (rotateZPlus) {
+			rotationZ += rotationSpeed * deltaTime; // aumenta no tempo
+		}
+		if (rotateZMinus) {
+			rotationZ -= rotationSpeed * deltaTime; // aumenta no tempo
+		}
+		
+		// Resetar model
+		model = glm::mat4(1.0f);
+		modelCubo2 = glm::mat4(1.0f);
+
+		model = glm::scale(model, glm::vec3(scale, scale, scale)); // Aplica a escala
+		modelCubo2 = glm::scale(modelCubo2, glm::vec3(scale, scale, scale));
+
+		// move o cubo 1 mais para perto da borda
+		model = glm::translate(model, glm::vec3(-0.85f, 0.0f, 0.0f));
+		// move o cubo2 para o lado para ficar visível
+		modelCubo2 = glm::translate(modelCubo2, glm::vec3(0.85f, 0.0f, 0.0f));
+
+		// Aplica as rotações acumuladas
+		model = glm::rotate(model, rotationX, glm::vec3(1.0f, 0.0f, 0.0f)); // eixo X
+		model = glm::rotate(model, rotationY, glm::vec3(0.0f, 1.0f, 0.0f)); // eixo Y
+		model = glm::rotate(model, rotationZ, glm::vec3(0.0f, 0.0f, 1.0f)); // eixo Z
+
+		// rotação cubo 2
+		modelCubo2 = glm::rotate(modelCubo2, rotationX, glm::vec3(1.0f, 0.0f, 0.0f)); // eixo X
+		modelCubo2 = glm::rotate(modelCubo2, rotationY, glm::vec3(0.0f, 1.0f, 0.0f)); // eixo Y
+		modelCubo2 = glm::rotate(modelCubo2, rotationZ, glm::vec3(0.0f, 0.0f, 1.0f)); // eixo Z
 
 		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
+		glBindVertexArray(VAO);
+		glDrawArrays(GL_TRIANGLES, 0, 36); // número de triângulos
+		glDrawArrays(GL_POINTS, 0, 36); // de pontos
 		// Chamada de desenho - drawcall
 		// Poligono Preenchido - GL_TRIANGLES
 		
-		glBindVertexArray(VAO);
-		glDrawArrays(GL_TRIANGLES, 0, 18);
+		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(modelCubo2));
+		glDrawArrays(GL_TRIANGLES, 0, 36);
+		glDrawArrays(GL_POINTS, 0, 36);
 
-		// Chamada de desenho - drawcall
-		// CONTORNO - GL_LINE_LOOP
-		
-		glDrawArrays(GL_POINTS, 0, 18);
 		glBindVertexArray(0);
 
 		// Troca os buffers da tela
@@ -184,32 +234,88 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 	if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
 		glfwSetWindowShouldClose(window, GL_TRUE);
 
-	if (key == GLFW_KEY_X && action == GLFW_PRESS)
+	if (key == GLFW_KEY_W && action == GLFW_PRESS)
 	{
-		rotateX = true;
-		rotateY = false;
-		rotateZ = false;
+		rotateXLeft = true;
+		rotateXRight = false;
+		rotateYUp = false;
+		rotateYDown = false;
+		rotateZPlus = false;
+		rotateZMinus = false;
+	}
+	if (key == GLFW_KEY_S && action == GLFW_PRESS)
+	{
+		rotateXLeft = false;
+		rotateXRight = true;
+		rotateYUp = false;
+		rotateYDown = false;
+		rotateZPlus = false;
+		rotateZMinus = false;
 	}
 
-	if (key == GLFW_KEY_Y && action == GLFW_PRESS)
+	if (key == GLFW_KEY_A && action == GLFW_PRESS)
 	{
-		rotateX = false;
-		rotateY = true;
-		rotateZ = false;
+		rotateXLeft = false;
+		rotateXRight = false;
+		rotateYUp = true;
+		rotateYDown = false;
+		rotateZPlus = false;
+		rotateZMinus = false;
 	}
 
-	if (key == GLFW_KEY_Z && action == GLFW_PRESS)
+	if (key == GLFW_KEY_D && action == GLFW_PRESS)
 	{
-		rotateX = false;
-		rotateY = false;
-		rotateZ = true;
+		rotateXLeft = false;
+		rotateXRight = false;
+		rotateYUp = false;
+		rotateYDown = true;
+		rotateZPlus = false;
+		rotateZMinus = false;
 	}
 
+	if (key == GLFW_KEY_I && action == GLFW_PRESS)
+	{
+		rotateXLeft = false;
+		rotateXRight = false;
+		rotateYUp = false;
+		rotateYDown = false;
+		rotateZPlus = true;
+		rotateZMinus = false;
+	}
+	if (key == GLFW_KEY_J && action == GLFW_PRESS)
+	{
+		rotateXLeft = false;
+		rotateXRight = false;
+		rotateYUp = false;
+		rotateYDown = false;
+		rotateZPlus = false;
+		rotateZMinus = true;
+	}
+	if (key == GLFW_KEY_SPACE && action == GLFW_PRESS)
+	{
+		rotateXLeft = false;
+		rotateXRight = false;
+		rotateYUp = false;
+		rotateYDown = false;
+		rotateZPlus = false;
+		rotateZMinus = false;
+	}
+
+	// Escala
+	if (key == GLFW_KEY_UP && action == GLFW_PRESS) // tecla '+'
+	{
+		scale += scaleFactor; // aumenta a escala
+	}
+	if (key == GLFW_KEY_DOWN && action == GLFW_PRESS) // tecla '-'
+	{
+		scale -= scaleFactor;
+		if (scale < scaleFactor) scale = scaleFactor; // previne escala negativa
+	}
 
 
 }
 
-//Esta função está basntante hardcoded - objetivo é compilar e "buildar" um programa de
+//Esta função está bastante hardcoded - objetivo é compilar e "buildar" um programa de
 // shader simples e único neste exemplo de código
 // O código fonte do vertex e fragment shader está nos arrays vertexShaderSource e
 // fragmentShader source no iniçio deste arquivo
@@ -264,43 +370,106 @@ int setupShader()
 // A função retorna o identificador do VAO
 int setupGeometry()
 {
+
+	// base quadrada
+	GLfloat pointA[] = {-0.5f, -0.5f, -0.5f};  // Ponto A
+	GLfloat pointB[] = {0.5f, -0.5f, -0.5f};  // Ponto B
+	GLfloat pointC[] = {-0.5f, -0.5f, 0.5f};  // Ponto C
+	GLfloat pointD[] = {0.5f, -0.5f, 0.5f};   // Ponto D
+
+	// topo quadrado
+	GLfloat pointE[] = {-0.5f, 0.5f, -0.5f};  // Ponto E
+	GLfloat pointF[] = {0.5f, 0.5f, -0.5f};  // Ponto F
+	GLfloat pointG[] = {-0.5f, 0.5f, 0.5f};  // Ponto G
+	GLfloat pointH[] = {0.5f, 0.5f, 0.5f};   // Ponto H
+
+	GLfloat colorA[] = {1.0f, 0.0f, 0.0f};   // Cor Ponto A
+	GLfloat colorB[] = {0.0f, 1.0f, 0.0f};   // Cor Ponto B
+	GLfloat colorC[] = {0.0f, 0.0f, 1.0f};   // Cor Ponto C
+	GLfloat colorD[] = {1.0f, 1.0f, 0.0f};   // Cor Ponto D
+	GLfloat colorE[] = {1.0f, 0.0f, 1.0f};   // Cor Ponto E
+	GLfloat colorF[] = {0.0f, 1.0f, 1.0f};   // Cor Ponto F
+	GLfloat colorG[] = {1.0f, 0.5f, 0.0f};   // Cor Ponto G
+	GLfloat colorH[] = {0.5f, 0.0f, 1.0f};   // Cor Ponto H
+
 	// Aqui setamos as coordenadas x, y e z do triângulo e as armazenamos de forma
 	// sequencial, já visando mandar para o VBO (Vertex Buffer Objects)
 	// Cada atributo do vértice (coordenada, cores, coordenadas de textura, normal, etc)
 	// Pode ser arazenado em um VBO único ou em VBOs separados
 	GLfloat vertices[] = {
 
-		//Base da pirâmide: 2 triângulos
-		//x    y    z    r    g    b
-		-0.5, -0.5, -0.5, 1.0, 1.0, 0.0,
-		-0.5, -0.5,  0.5, 0.0, 1.0, 1.0,
-		 0.5, -0.5, -0.5, 1.0, 0.0, 1.0,
+		// total, 12 triângulos
 
-		 -0.5, -0.5, 0.5, 1.0, 1.0, 0.0,
-		  0.5, -0.5,  0.5, 0.0, 1.0, 1.0,
-		  0.5, -0.5, -0.5, 1.0, 0.0, 1.0,
+		//Base do quadrado com 2 triângulos:
+		//  x         y           z          r          g         b
+        pointA[0], pointA[1], pointA[2], colorA[0], colorA[1], colorA[2],
+        pointB[0], pointB[1], pointB[2], colorB[0], colorB[1], colorB[2],
+        pointC[0], pointC[1], pointC[2], colorC[0], colorC[1], colorC[2],
+		//  x         y           z          r          g         b
+        pointB[0], pointB[1], pointB[2], colorB[0], colorB[1], colorB[2],
+        pointC[0], pointC[1], pointC[2], colorC[0], colorC[1], colorC[2],
+        pointD[0], pointD[1], pointD[2], colorD[0], colorD[1], colorD[2],
 
-		 //
-		 -0.5, -0.5, -0.5, 1.0, 1.0, 0.0,
-		  0.0,  0.5,  0.0, 1.0, 1.0, 0.0,
-		  0.5, -0.5, -0.5, 1.0, 1.0, 0.0,
+		// //Topo do quadrado com 2 triângulos:
+		// //  x       y           z          r          g         b
+        pointE[0], pointE[1], pointE[2], colorE[0], colorE[1], colorE[2],
+        pointF[0], pointF[1], pointF[2], colorF[0], colorF[1], colorF[2],
+        pointG[0], pointG[1], pointG[2], colorG[0], colorG[1], colorG[2],
+		//  x         y           z          r          g         b
+        pointF[0], pointF[1], pointF[2], colorF[0], colorF[1], colorF[2],
+        pointG[0], pointG[1], pointG[2], colorG[0], colorG[1], colorG[2],
+        pointH[0], pointH[1], pointH[2], colorH[0], colorH[1], colorH[2],
 
-		  -0.5, -0.5, -0.5, 1.0, 0.0, 1.0,
-		  0.0,  0.5,  0.0, 1.0, 0.0, 1.0,
-		  -0.5, -0.5, 0.5, 1.0, 0.0, 1.0,
+		// Lado 1 com  2 triângulos:
+		//  x         y           z          r          g         b
+        pointC[0], pointC[1], pointC[2], colorC[0], colorC[1], colorC[2],
+        pointA[0], pointA[1], pointA[2], colorA[0], colorA[1], colorA[2],
+        pointE[0], pointE[1], pointE[2], colorE[0], colorE[1], colorE[2],
+		// //  x         y           z          r          g      b
+        pointC[0], pointC[1], pointC[2], colorC[0], colorC[1], colorC[2],
+        pointE[0], pointE[1], pointE[2], colorE[0], colorE[1], colorE[2],
+        pointG[0], pointG[1], pointG[2], colorG[0], colorG[1], colorG[2],
 
-		   -0.5, -0.5, 0.5, 1.0, 1.0, 0.0,
-		  0.0,  0.5,  0.0, 1.0, 1.0, 0.0,
-		  0.5, -0.5, 0.5, 1.0, 1.0, 0.0,
+		// Lado 2 com  2 triângulos:
+		//  x         y           z          r          g         b
+        pointB[0], pointB[1], pointB[2], colorB[0], colorB[1], colorB[2],
+        pointF[0], pointF[1], pointF[2], colorF[0], colorF[1], colorF[2],
+        pointD[0], pointD[1], pointD[2], colorD[0], colorD[1], colorD[2],
+		//  x         y           z          r          g         b
+        pointD[0], pointD[1], pointD[2], colorD[0], colorD[1], colorD[2],
+        pointF[0], pointF[1], pointF[2], colorF[0], colorF[1], colorF[2],
+        pointH[0], pointH[1], pointH[2], colorH[0], colorH[1], colorH[2],
 
-		   0.5, -0.5, 0.5, 0.0, 1.0, 1.0,
-		  0.0,  0.5,  0.0, 0.0, 1.0, 1.0,
-		  0.5, -0.5, -0.5, 0.0, 1.0, 1.0,
+		// Frente com 2 triângulos
+		//  x         y           z          r          g         b
+		pointD[0], pointD[1], pointD[2], colorD[0], colorD[1], colorD[2],
+		pointH[0], pointH[1], pointH[2], colorH[0], colorH[1], colorH[2],
+		pointC[0], pointC[1], pointC[2], colorC[0], colorC[1], colorC[2],
+		//  x         y           z          r          g         b	
+		pointC[0], pointC[1], pointC[2], colorC[0], colorC[1], colorC[2],
+		pointH[0], pointH[1], pointH[2], colorH[0], colorH[1], colorH[2],
+		pointG[0], pointG[1], pointG[2], colorG[0], colorG[1], colorG[2],
 
+		// Trás com 2 triângulos
+		//  x         y           z          r          g         b
+		pointB[0], pointB[1], pointB[2], colorB[0], colorB[1], colorB[2],
+		pointA[0], pointA[1], pointA[2], colorA[0], colorA[1], colorA[2],
+		pointF[0], pointF[1], pointF[2], colorF[0], colorF[1], colorF[2],
+		//  x         y           z          r          g         b
+		pointF[0], pointF[1], pointF[2], colorF[0], colorF[1], colorF[2],
+		pointA[0], pointA[1], pointA[2], colorA[0], colorA[1], colorA[2],
+		pointE[0], pointE[1], pointE[2], colorE[0], colorE[1], colorE[2],
 
 	};
 
 	GLuint VBO, VAO;
+
+	//Geração do identificador do VAO (Vertex Array Object)
+	glGenVertexArrays(1, &VAO);
+
+	// Vincula (bind) o VAO primeiro, e em seguida  conecta e seta o(s) buffer(s) de vértices
+	// e os ponteiros para os atributos 
+	glBindVertexArray(VAO);
 
 	//Geração do identificador do VBO
 	glGenBuffers(1, &VBO);
@@ -310,13 +479,6 @@ int setupGeometry()
 
 	//Envia os dados do array de floats para o buffer da OpenGl
 	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-
-	//Geração do identificador do VAO (Vertex Array Object)
-	glGenVertexArrays(1, &VAO);
-
-	// Vincula (bind) o VAO primeiro, e em seguida  conecta e seta o(s) buffer(s) de vértices
-	// e os ponteiros para os atributos 
-	glBindVertexArray(VAO);
 	
 	//Para cada atributo do vertice, criamos um "AttribPointer" (ponteiro para o atributo), indicando: 
 	// Localização no shader * (a localização dos atributos devem ser correspondentes no layout especificado no vertex shader)
