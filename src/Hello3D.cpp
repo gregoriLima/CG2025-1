@@ -189,7 +189,7 @@ int main()
 		modelCubo2 = glm::scale(modelCubo2, glm::vec3(scale, scale, scale));
 
 		// move o cubo 1 mais para perto da borda
-		model = glm::translate(model, glm::vec3(-0.85f, 0.0f, 0.0f));
+		model = glm::translate(model, glm::vec3(-0.85f, -0.7f, 0.0f));
 		// move o cubo2 para o lado para ficar visível
 		modelCubo2 = glm::translate(modelCubo2, glm::vec3(0.85f, 0.0f, 0.0f));
 
