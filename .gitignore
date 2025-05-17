@@ -7,7 +7,7 @@
 
 # Ignorar arquivos de saída do compilador (objetos e executáveis)
 *.o
-*.obj
+#*.obj
 *.exe
 *.out
 *.a
@@ -20,6 +20,10 @@ _build/
 _deps/
 glfw-src/
 glfw-build/
+
+# Ignora diretórios com dependências externas baixadas automaticamente pelo FetchContent (stb_image CMake)
+external/
+
 
 # Ignorar configurações específicas do VSCode
 .vscode/
