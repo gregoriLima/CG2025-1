@@ -1,14 +1,4 @@
-/* Hello Triangle - código adaptado de https://learnopengl.com/#!Getting-started/Hello-Triangle
- *
- * Adaptado por Rossana Baptista Queiroz
- * para as disciplinas de Processamento Gráfico/Computação Gráfica - Unisinos
- * Versão inicial: 7/4/2017
- * Última atualização em 07/03/2025
- */
-
 #include <iostream>
-#include <string>
-#include <assert.h>
 
 using namespace std;
 
@@ -23,6 +13,8 @@ using namespace std;
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
+#define STB_IMAGE_IMPLEMENTATION
+#include <stb_image.h>
 
 // Protótipo da função de callback de teclado
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mode);
@@ -30,36 +22,41 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 // Protótipos das funções
 int setupShader();
 int setupGeometry();
+GLuint loadTexture(string filePath, int &width, int &height);
 
 // Dimensões da janela (pode ser alterado em tempo de execução)
-const GLuint WIDTH = 1000, HEIGHT = 1000;
+const GLuint WIDTH = 600, HEIGHT = 600;
 
 // Código fonte do Vertex Shader (em GLSL): ainda hardcoded
 const GLchar* vertexShaderSource = "#version 450\n"
 "layout (location = 0) in vec3 position;\n"
 "layout (location = 1) in vec3 color;\n"
+"layout (location = 2) in vec2 texCoord;\n"
 "uniform mat4 model;\n"
 "out vec4 finalColor;\n"
+"out vec2 TexCoord;\n"
 "void main()\n"
 "{\n"
-//...pode ter mais linhas de código aqui!
 "gl_Position = model * vec4(position, 1.0);\n"
 "finalColor = vec4(color, 1.0);\n"
+"TexCoord = texCoord;\n"
 "}\0";
 
 //Códifo fonte do Fragment Shader (em GLSL): ainda hardcoded
 const GLchar* fragmentShaderSource = "#version 450\n"
 "in vec4 finalColor;\n"
+"in vec2 TexCoord;\n"
 "out vec4 color;\n"
+"uniform sampler2D texBuff;\n"
 "void main()\n"
 "{\n"
-"color = finalColor;\n"
+"color = texture(texBuff, TexCoord) * finalColor;\n"
 "}\n\0";
 
 bool rotateXLeft=false, rotateXRight=false, rotateYUp=false, rotateYDown=false, rotateZPlus=false, rotateZMinus=false;
 
 // Escala inicial de 1
-float scale = 0.6f;
+float escala = 0.6f;
 // Incremento da escala
 const float scaleFactor = 0.1f;
 
@@ -114,19 +111,25 @@ int main()
 	// Gerando um buffer simples, com a geometria de um triângulo
 	GLuint VAO = setupGeometry();
 
+	// Carregando uma textura e armazenando seu id
+	int imgWidth, imgHeight;
+	GLuint texID = loadTexture("../assets/tex/pixelWall.png",imgWidth,imgHeight);
 
 	glUseProgram(shaderID);
 
+	// Enviar a informação de qual variável armazenará o buffer da textura
+	glUniform1i(glGetUniformLocation(shaderID, "texBuff"), 0);
+
+	//Ativando o primeiro buffer de textura da OpenGL
+	glActiveTexture(GL_TEXTURE0);
+
 	glm::mat4 model = glm::mat4(1); //matriz identidade;
-	glm::mat4 modelCubo2 = glm::mat4(1); //matriz identidade do cubo 2
 
 	GLint modelLoc = glGetUniformLocation(shaderID, "model");
 	//
 	model = glm::rotate(model, /*(GLfloat)glfwGetTime()*/glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-	modelCubo2 = glm::rotate(modelCubo2, glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
 	
 	glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
-	glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(modelCubo2)); // cubo 2
 
 	glEnable(GL_DEPTH_TEST);
 
@@ -139,7 +142,6 @@ int main()
 
 	float lastTime = glfwGetTime();
 	// acumula o ângulo de rotação para evitar que a rotação da imagem não seja baseada em um estado inicial
-	float rotationAngle = 0.0f; // ângulo acumulado
 
 	// Loop da aplicação - "game loop"
 	while (!glfwWindowShouldClose(window))
@@ -183,36 +185,25 @@ int main()
 		
 		// Resetar model
 		model = glm::mat4(1.0f);
-		modelCubo2 = glm::mat4(1.0f);
 
-		model = glm::scale(model, glm::vec3(scale, scale, scale)); // Aplica a escala
-		modelCubo2 = glm::scale(modelCubo2, glm::vec3(scale, scale, scale));
+		model = glm::scale(model, glm::vec3(escala, escala, escala)); // Aplica a escala
 
-		// move o cubo 1 mais para perto da borda
-		model = glm::translate(model, glm::vec3(-0.85f, 0.5f, 0.0f));
-		// move o cubo2 para o lado para ficar visível
-		modelCubo2 = glm::translate(modelCubo2, glm::vec3(0.85f, 0.0f, 0.0f));
+		model = glm::translate(model, glm::vec3(0.0f, 0.0f, 0.0f));
 
 		// Aplica as rotações acumuladas
 		model = glm::rotate(model, rotationX, glm::vec3(1.0f, 0.0f, 0.0f)); // eixo X
 		model = glm::rotate(model, rotationY, glm::vec3(0.0f, 1.0f, 0.0f)); // eixo Y
 		model = glm::rotate(model, rotationZ, glm::vec3(0.0f, 0.0f, 1.0f)); // eixo Z
 
-		// rotação cubo 2
-		modelCubo2 = glm::rotate(modelCubo2, rotationX, glm::vec3(1.0f, 0.0f, 0.0f)); // eixo X
-		modelCubo2 = glm::rotate(modelCubo2, rotationY, glm::vec3(0.0f, 1.0f, 0.0f)); // eixo Y
-		modelCubo2 = glm::rotate(modelCubo2, rotationZ, glm::vec3(0.0f, 0.0f, 1.0f)); // eixo Z
-
 		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
 		glBindVertexArray(VAO);
+
+		glBindTexture(GL_TEXTURE_2D, texID);
+		
 		glDrawArrays(GL_TRIANGLES, 0, 36); // número de triângulos
 		glDrawArrays(GL_POINTS, 0, 36); // de pontos
 		// Chamada de desenho - drawcall
 		// Poligono Preenchido - GL_TRIANGLES
-		
-		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(modelCubo2));
-		glDrawArrays(GL_TRIANGLES, 0, 36);
-		glDrawArrays(GL_POINTS, 0, 36);
 
 		glBindVertexArray(0);
 
@@ -304,12 +295,12 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 	// Escala
 	if (key == GLFW_KEY_UP && action == GLFW_PRESS) // tecla '+'
 	{
-		scale += scaleFactor; // aumenta a escala
+		escala += scaleFactor; // aumenta a escala
 	}
 	if (key == GLFW_KEY_DOWN && action == GLFW_PRESS) // tecla '-'
 	{
-		scale -= scaleFactor;
-		if (scale < scaleFactor) scale = scaleFactor; // previne escala negativa
+		escala -= scaleFactor;
+		if (escala < scaleFactor) escala = scaleFactor; // previne escala negativa
 	}
 }
 
@@ -400,108 +391,138 @@ int setupGeometry()
 
 		//Base do quadrado com 2 triângulos:
 		//  x         y           z          r          g         b
-        pointA[0], pointA[1], pointA[2], colorA[0], colorA[1], colorA[2],
-        pointB[0], pointB[1], pointB[2], colorB[0], colorB[1], colorB[2],
-        pointC[0], pointC[1], pointC[2], colorC[0], colorC[1], colorC[2],
+        pointA[0], pointA[1], pointA[2], colorA[0], colorA[1], colorA[2], 0.0f, 0.0f,
+        pointB[0], pointB[1], pointB[2], colorB[0], colorB[1], colorB[2], 1.0f, 0.0f,
+        pointC[0], pointC[1], pointC[2], colorC[0], colorC[1], colorC[2], 0.0f, 1.0f,
 		//  x         y           z          r          g         b
-        pointB[0], pointB[1], pointB[2], colorB[0], colorB[1], colorB[2],
-        pointC[0], pointC[1], pointC[2], colorC[0], colorC[1], colorC[2],
-        pointD[0], pointD[1], pointD[2], colorD[0], colorD[1], colorD[2],
+        pointB[0], pointB[1], pointB[2], colorB[0], colorB[1], colorB[2], 1.0f, 0.0f,
+        pointC[0], pointC[1], pointC[2], colorC[0], colorC[1], colorC[2], 0.0f, 1.0f,
+        pointD[0], pointD[1], pointD[2], colorD[0], colorD[1], colorD[2], 1.0f, 1.0f,
 
 		// //Topo do quadrado com 2 triângulos:
 		// //  x       y           z          r          g         b
-        pointE[0], pointE[1], pointE[2], colorE[0], colorE[1], colorE[2],
-        pointF[0], pointF[1], pointF[2], colorF[0], colorF[1], colorF[2],
-        pointG[0], pointG[1], pointG[2], colorG[0], colorG[1], colorG[2],
+        pointE[0], pointE[1], pointE[2], colorE[0], colorE[1], colorE[2], 0.0f, 0.0f,
+        pointF[0], pointF[1], pointF[2], colorF[0], colorF[1], colorF[2], 1.0f, 0.0f,
+        pointG[0], pointG[1], pointG[2], colorG[0], colorG[1], colorG[2], 0.0f, 1.0f,
 		//  x         y           z          r          g         b
-        pointF[0], pointF[1], pointF[2], colorF[0], colorF[1], colorF[2],
-        pointG[0], pointG[1], pointG[2], colorG[0], colorG[1], colorG[2],
-        pointH[0], pointH[1], pointH[2], colorH[0], colorH[1], colorH[2],
+        pointF[0], pointF[1], pointF[2], colorF[0], colorF[1], colorF[2], 1.0f, 0.0f,
+        pointG[0], pointG[1], pointG[2], colorG[0], colorG[1], colorG[2], 0.0f, 1.0f,
+        pointH[0], pointH[1], pointH[2], colorH[0], colorH[1], colorH[2], 1.0f, 1.0f,
 
-		// Lado 1 com  2 triângulos:
+		// Lado esquerdo com  2 triângulos:
 		//  x         y           z          r          g         b
-        pointC[0], pointC[1], pointC[2], colorC[0], colorC[1], colorC[2],
-        pointA[0], pointA[1], pointA[2], colorA[0], colorA[1], colorA[2],
-        pointE[0], pointE[1], pointE[2], colorE[0], colorE[1], colorE[2],
+        pointA[0], pointA[1], pointA[2], colorA[0], colorA[1], colorA[2], 0.0f, 0.0f,
+        pointC[0], pointC[1], pointC[2], colorC[0], colorC[1], colorC[2], 1.0f, 0.0f,
+        pointE[0], pointE[1], pointE[2], colorE[0], colorE[1], colorE[2], 0.0f, 1.0f,
 		// //  x         y           z          r          g      b
-        pointC[0], pointC[1], pointC[2], colorC[0], colorC[1], colorC[2],
-        pointE[0], pointE[1], pointE[2], colorE[0], colorE[1], colorE[2],
-        pointG[0], pointG[1], pointG[2], colorG[0], colorG[1], colorG[2],
+        pointC[0], pointC[1], pointC[2], colorC[0], colorC[1], colorC[2], 1.0f, 0.0f,
+        pointE[0], pointE[1], pointE[2], colorE[0], colorE[1], colorE[2], 0.0f, 1.0f,
+        pointG[0], pointG[1], pointG[2], colorG[0], colorG[1], colorG[2], 1.0f, 1.0f,
 
-		// Lado 2 com  2 triângulos:
+		// Lado direito com  2 triângulos:
 		//  x         y           z          r          g         b
-        pointB[0], pointB[1], pointB[2], colorB[0], colorB[1], colorB[2],
-        pointF[0], pointF[1], pointF[2], colorF[0], colorF[1], colorF[2],
-        pointD[0], pointD[1], pointD[2], colorD[0], colorD[1], colorD[2],
+        pointB[0], pointB[1], pointB[2], colorB[0], colorB[1], colorB[2], 0.0f, 0.0f,
+        pointD[0], pointD[1], pointD[2], colorD[0], colorD[1], colorD[2], 1.0f, 0.0f,
+        pointF[0], pointF[1], pointF[2], colorF[0], colorF[1], colorF[2], 0.0f, 1.0f,
 		//  x         y           z          r          g         b
-        pointD[0], pointD[1], pointD[2], colorD[0], colorD[1], colorD[2],
-        pointF[0], pointF[1], pointF[2], colorF[0], colorF[1], colorF[2],
-        pointH[0], pointH[1], pointH[2], colorH[0], colorH[1], colorH[2],
+        pointD[0], pointD[1], pointD[2], colorD[0], colorD[1], colorD[2], 1.0f, 0.0f,
+        pointF[0], pointF[1], pointF[2], colorF[0], colorF[1], colorF[2], 0.0f, 1.0f,
+        pointH[0], pointH[1], pointH[2], colorH[0], colorH[1], colorH[2], 1.0f, 1.0f,
 
 		// Frente com 2 triângulos
 		//  x         y           z          r          g         b
-		pointD[0], pointD[1], pointD[2], colorD[0], colorD[1], colorD[2],
-		pointH[0], pointH[1], pointH[2], colorH[0], colorH[1], colorH[2],
-		pointC[0], pointC[1], pointC[2], colorC[0], colorC[1], colorC[2],
+		pointC[0], pointC[1], pointC[2], colorC[0], colorC[1], colorC[2], 0.0f, 0.0f,
+		pointD[0], pointD[1], pointD[2], colorD[0], colorD[1], colorD[2], 1.0f, 0.0f,
+		pointG[0], pointG[1], pointG[2], colorG[0], colorG[1], colorG[2], 0.0f, 1.0f,
 		//  x         y           z          r          g         b	
-		pointC[0], pointC[1], pointC[2], colorC[0], colorC[1], colorC[2],
-		pointH[0], pointH[1], pointH[2], colorH[0], colorH[1], colorH[2],
-		pointG[0], pointG[1], pointG[2], colorG[0], colorG[1], colorG[2],
+		pointD[0], pointD[1], pointD[2], colorD[0], colorD[1], colorD[2], 1.0f, 0.0f,
+		pointG[0], pointG[1], pointG[2], colorG[0], colorG[1], colorG[2], 0.0f, 1.0f,
+		pointH[0], pointH[1], pointH[2], colorH[0], colorH[1], colorH[2], 1.0f, 1.0f,
 
 		// Trás com 2 triângulos
 		//  x         y           z          r          g         b
-		pointB[0], pointB[1], pointB[2], colorB[0], colorB[1], colorB[2],
-		pointA[0], pointA[1], pointA[2], colorA[0], colorA[1], colorA[2],
-		pointF[0], pointF[1], pointF[2], colorF[0], colorF[1], colorF[2],
+		pointA[0], pointA[1], pointA[2], colorA[0], colorA[1], colorA[2], 0.0f, 0.0f,
+		pointB[0], pointB[1], pointB[2], colorB[0], colorB[1], colorB[2], 1.0f, 0.0f,
+		pointE[0], pointE[1], pointE[2], colorE[0], colorE[1], colorE[2], 0.0f, 1.0f,
 		//  x         y           z          r          g         b
-		pointF[0], pointF[1], pointF[2], colorF[0], colorF[1], colorF[2],
-		pointA[0], pointA[1], pointA[2], colorA[0], colorA[1], colorA[2],
-		pointE[0], pointE[1], pointE[2], colorE[0], colorE[1], colorE[2],
-
+		pointB[0], pointB[1], pointB[2], colorB[0], colorB[1], colorB[2], 1.0f, 0.0f,
+		pointE[0], pointE[1], pointE[2], colorE[0], colorE[1], colorE[2], 0.0f, 1.0f,
+		pointF[0], pointF[1], pointF[2], colorF[0], colorF[1], colorF[2], 1.0f, 1.0f
 	};
 
 	GLuint VBO, VAO;
 
-	//Geração do identificador do VAO (Vertex Array Object)
-	glGenVertexArrays(1, &VAO);
+    // Gera o VAO e o VBO
+    glGenVertexArrays(1, &VAO);
+    glGenBuffers(1, &VBO);
 
-	// Vincula (bind) o VAO primeiro, e em seguida  conecta e seta o(s) buffer(s) de vértices
-	// e os ponteiros para os atributos 
-	glBindVertexArray(VAO);
+    // Vincula o VAO
+    glBindVertexArray(VAO);
 
-	//Geração do identificador do VBO
-	glGenBuffers(1, &VBO);
+    // Vincula o VBO e envia os dados dos vértices
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
-	//Faz a conexão (vincula) do buffer como um buffer de array
-	glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    // Configura os atributos dos vértices:
+    // - Posição (location = 0)
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid*)0);
+    glEnableVertexAttribArray(0);
 
-	//Envia os dados do array de floats para o buffer da OpenGl
-	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-	
-	//Para cada atributo do vertice, criamos um "AttribPointer" (ponteiro para o atributo), indicando: 
-	// Localização no shader * (a localização dos atributos devem ser correspondentes no layout especificado no vertex shader)
-	// Numero de valores que o atributo tem (por ex, 3 coordenadas xyz) 
-	// Tipo do dado
-	// Se está normalizado (entre zero e um)
-	// Tamanho em bytes 
-	// Deslocamento a partir do byte zero 
-	
-	//Atributo posição (x, y, z)
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(GLfloat), (GLvoid*)0);
-	glEnableVertexAttribArray(0);
+    // - Cor (location = 1)
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid*)(3 * sizeof(GLfloat)));
+    glEnableVertexAttribArray(1);
 
-	//Atributo cor (r, g, b)
-	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(GLfloat), (GLvoid*)(3*sizeof(GLfloat)));
-	glEnableVertexAttribArray(1);
+    // - Coordenadas de textura (location = 2)
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid*)(6 * sizeof(GLfloat)));
+    glEnableVertexAttribArray(2);
 
+    // Desvincula o VAO e o VBO
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
 
-	// Observe que isso é permitido, a chamada para glVertexAttribPointer registrou o VBO como o objeto de buffer de vértice 
-	// atualmente vinculado - para que depois possamos desvincular com segurança
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-	// Desvincula o VAO (é uma boa prática desvincular qualquer buffer ou array para evitar bugs medonhos)
-	glBindVertexArray(0);
-
-	return VAO;
+    return VAO;
 }
 
+GLuint loadTexture(string filePath, int &width, int &height)
+{
+	GLuint texID; // id da textura a ser carregada
+
+	// Gera o identificador da textura na memória
+	glGenTextures(1, &texID);
+	glBindTexture(GL_TEXTURE_2D, texID);
+
+	// Ajuste dos parâmetros de wrapping e filtering
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+	// Carregamento da imagem usando a função stbi_load da biblioteca stb_image
+	int nrChannels;
+
+	unsigned char *data = stbi_load(filePath.c_str(), &width, &height, &nrChannels, 0);
+
+	if (data)
+	{
+		if (nrChannels == 3) // jpg, bmp
+		{
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+		}
+		else // assume que é 4 canais png
+		{
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+		}
+		glGenerateMipmap(GL_TEXTURE_2D);
+	}
+	else
+	{
+		std::cout << "Failed to load texture " << filePath << std::endl;
+	}
+
+	stbi_image_free(data);
+
+	glBindTexture(GL_TEXTURE_2D, 0);
+
+	return texID;
+}

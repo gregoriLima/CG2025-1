@@ -11,6 +11,9 @@ Repositório de exemplos de códigos em C++ utilizando OpenGL moderna (3.3+) cri
 - **28/04/2025**
   -> DESAFIO MÓDULO 2: Instanciando objetos na cena 3D
 
+- **20/05/2025**
+  -> DESAFIO MÓDULO 3: Adicionando texturas
+
 ---
 
 
@@ -28,6 +31,12 @@ Repositório de exemplos de códigos em C++ utilizando OpenGL moderna (3.3+) cri
 ### - Tarefa 2: Instanciando objetos na cena 3D
 
 ![Print - Tarefa 2](print_tarefa2.gif)
+
+---
+
+### - Tarefa 3: Adicionando Texturas
+
+![Print - Tarefa 3](print_tarefa3.gif)
 
 ---
 executando o projeto:
