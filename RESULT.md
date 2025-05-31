@@ -15,3 +15,9 @@
 ### - Tarefa 3: Adicionando Texturas
 
 ![Print - Tarefa 3](print_tarefa3.gif)
+
+---
+
+### - Tarefa 4: Adicionando Iluminação
+
+![Print - Tarefa 4](print_tarefa4.gif)

@@ -14,6 +14,9 @@ Repositório de exemplos de códigos em C++ utilizando OpenGL moderna (3.3+) cri
 - **20/05/2025**
   -> DESAFIO MÓDULO 3: Adicionando texturas
 
+- **31/05/2025**
+  -> DESAFIO MÓDULO 4: Adicionando iluminação (modelo Phong)
+  
 ---
 
 
@@ -37,6 +40,12 @@ Repositório de exemplos de códigos em C++ utilizando OpenGL moderna (3.3+) cri
 ### - Tarefa 3: Adicionando Texturas
 
 ![Print - Tarefa 3](print_tarefa3.gif)
+
+---
+
+### - Tarefa 4: Adicionando Iluminação
+
+![Print - Tarefa 4](print_tarefa4.gif)
 
 ---
 executando o projeto:

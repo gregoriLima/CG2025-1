@@ -30,27 +30,57 @@ const GLuint WIDTH = 600, HEIGHT = 600;
 // Código fonte do Vertex Shader (em GLSL): ainda hardcoded
 const GLchar* vertexShaderSource = "#version 450\n"
 "layout (location = 0) in vec3 position;\n"
-"layout (location = 1) in vec3 color;\n"
-"layout (location = 2) in vec2 texCoord;\n"
+"layout (location = 1) in vec2 texCoord;\n"
+"layout (location = 2) in vec3 normal;\n"
 "uniform mat4 model;\n"
-"out vec4 finalColor;\n"
+"uniform mat4 view;\n"
+"uniform mat4 projection;\n"
 "out vec2 TexCoord;\n"
+"out vec3 FragPos;\n"
+"out vec3 Normal;\n"
 "void main()\n"
 "{\n"
-"gl_Position = model * vec4(position, 1.0);\n"
-"finalColor = vec4(color, 1.0);\n"
-"TexCoord = texCoord;\n"
+"    gl_Position = projection * view * model * vec4(position, 1.0);\n"
+"    TexCoord = texCoord;\n"
+"    FragPos = vec3(model * vec4(position, 1.0));\n"
+"    Normal = mat3(transpose(inverse(model))) * normal;\n"
 "}\0";
 
 //Códifo fonte do Fragment Shader (em GLSL): ainda hardcoded
 const GLchar* fragmentShaderSource = "#version 450\n"
-"in vec4 finalColor;\n"
 "in vec2 TexCoord;\n"
-"out vec4 color;\n"
+"in vec3 FragPos;\n"
+"in vec3 Normal;\n"
+"out vec4 FragColor;\n"
 "uniform sampler2D texBuff;\n"
+"uniform float ka;\n"
+"uniform float kd;\n"
+"uniform float ks;\n"
+"uniform float shininess;\n"
+"uniform vec3 lightPos;\n"
+"uniform vec3 lightColor;\n"
+"uniform vec3 viewPos;\n"
 "void main()\n"
 "{\n"
-"color = texture(texBuff, TexCoord) * finalColor;\n"
+"    // 1. Iluminação ambiente\n"
+"    vec3 ambient = ka * lightColor;\n"
+"    \n"
+"    // 2. Iluminação difusa\n"
+"    vec3 norm = normalize(Normal);\n"
+"    vec3 lightDir = normalize(lightPos - FragPos);\n"
+"    float diff = max(dot(norm, lightDir), 0.0);\n"
+"    vec3 diffuse = kd * diff * lightColor;\n"
+"    \n"
+"    // 3. Iluminação especular (Phong)\n"
+"    vec3 viewDir = normalize(viewPos - FragPos);\n"
+"    vec3 reflectDir = reflect(-lightDir, norm);\n"
+"    float spec = pow(max(dot(viewDir, reflectDir), 0.0), shininess);\n"
+"    vec3 specular = ks * spec * lightColor;\n"
+"    \n"
+"    // 4. Combinação final (apenas com textura)\n"
+"    vec3 texColor = texture(texBuff, TexCoord).rgb;\n"
+"    vec3 result = (ambient + diffuse + specular) * texColor;\n"
+"    FragColor = vec4(result, 1.0);\n"
 "}\n\0";
 
 bool rotateXLeft=false, rotateXRight=false, rotateYUp=false, rotateYDown=false, rotateZPlus=false, rotateZMinus=false;
@@ -143,6 +173,26 @@ int main()
 	float lastTime = glfwGetTime();
 	// acumula o ângulo de rotação para evitar que a rotação da imagem não seja baseada em um estado inicial
 
+
+	// Configurações de iluminação
+	glm::vec3 lightPos(0.0f, 0.5f, 1.0f);
+    glm::vec3 lightColor(1.0f, 1.0f, 1.0f); // Luz branca
+    glm::vec3 viewPos(0.0f, 0.0f, 3.0f);   // Posição da câmera
+    
+	float ka = 0.3f;    // ambiente
+	float kd = 0.8f;    // difusa
+	float ks = 1.2f;    // especular
+	float shininess = 96.0f;
+    
+    // Matrizes de view e projection
+    glm::mat4 view = glm::lookAt(viewPos, 
+                                glm::vec3(0.0f, 0.0f, 0.0f), 
+                                glm::vec3(0.0f, 1.0f, 0.0f));
+    glm::mat4 projection = glm::perspective(glm::radians(45.0f), 
+                                          (float)WIDTH / (float)HEIGHT, 
+                                          0.1f, 100.0f);
+
+
 	// Loop da aplicação - "game loop"
 	while (!glfwWindowShouldClose(window))
 	{
@@ -183,6 +233,20 @@ int main()
 			rotationZ -= rotationSpeed * deltaTime; // aumenta no tempo
 		}
 		
+		// Envia as variáveis de iluminação para o shader
+        glUniform3fv(glGetUniformLocation(shaderID, "lightPos"), 1, glm::value_ptr(lightPos));
+        glUniform3fv(glGetUniformLocation(shaderID, "lightColor"), 1, glm::value_ptr(lightColor));
+        glUniform3fv(glGetUniformLocation(shaderID, "viewPos"), 1, glm::value_ptr(viewPos));
+        
+        glUniform1f(glGetUniformLocation(shaderID, "ka"), ka);
+        glUniform1f(glGetUniformLocation(shaderID, "kd"), kd);
+        glUniform1f(glGetUniformLocation(shaderID, "ks"), ks);
+        glUniform1f(glGetUniformLocation(shaderID, "shininess"), shininess);
+        
+        // Envia as matrizes view e projection
+        glUniformMatrix4fv(glGetUniformLocation(shaderID, "view"), 1, GL_FALSE, glm::value_ptr(view));
+        glUniformMatrix4fv(glGetUniformLocation(shaderID, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
+
 		// Resetar model
 		model = glm::mat4(1.0f);
 
@@ -372,94 +436,77 @@ int setupGeometry()
 	GLfloat pointG[] = {-0.5f, 0.5f, 0.5f};  // Ponto G
 	GLfloat pointH[] = {0.5f, 0.5f, 0.5f};   // Ponto H
 
-	GLfloat colorA[] = {1.0f, 0.0f, 0.0f};   // Cor Ponto A
-	GLfloat colorB[] = {0.0f, 1.0f, 0.0f};   // Cor Ponto B
-	GLfloat colorC[] = {0.0f, 0.0f, 1.0f};   // Cor Ponto C
-	GLfloat colorD[] = {1.0f, 1.0f, 0.0f};   // Cor Ponto D
-	GLfloat colorE[] = {1.0f, 0.0f, 1.0f};   // Cor Ponto E
-	GLfloat colorF[] = {0.0f, 1.0f, 1.0f};   // Cor Ponto F
-	GLfloat colorG[] = {1.0f, 0.5f, 0.0f};   // Cor Ponto G
-	GLfloat colorH[] = {0.5f, 0.0f, 1.0f};   // Cor Ponto H
+    // Normais para cada face do cubo
+    glm::vec3 normals[] = {
+        glm::vec3(0.0f, -1.0f, 0.0f),  // Base
+        glm::vec3(0.0f, 1.0f, 0.0f),   // Topo
+        glm::vec3(-1.0f, 0.0f, 0.0f),  // Lado esquerdo
+        glm::vec3(1.0f, 0.0f, 0.0f),   // Lado direito
+        glm::vec3(0.0f, 0.0f, 1.0f),   // Frente
+        glm::vec3(0.0f, 0.0f, -1.0f)   // Trás
+    };
 
-	// Aqui setamos as coordenadas x, y e z do triângulo e as armazenamos de forma
-	// sequencial, já visando mandar para o VBO (Vertex Buffer Objects)
-	// Cada atributo do vértice (coordenada, cores, coordenadas de textura, normal, etc)
-	// Pode ser arazenado em um VBO único ou em VBOs separados
-	GLfloat vertices[] = {
+    GLfloat vertices[] = {
+        // Base do quadrado (face inferior)
+        pointA[0], pointA[1], pointA[2], 0.0f, 0.0f, normals[0].x, normals[0].y, normals[0].z,
+        pointB[0], pointB[1], pointB[2], 1.0f, 0.0f, normals[0].x, normals[0].y, normals[0].z,
+        pointC[0], pointC[1], pointC[2], 0.0f, 1.0f, normals[0].x, normals[0].y, normals[0].z,
+        
+        pointB[0], pointB[1], pointB[2], 1.0f, 0.0f, normals[0].x, normals[0].y, normals[0].z,
+        pointC[0], pointC[1], pointC[2], 0.0f, 1.0f, normals[0].x, normals[0].y, normals[0].z,
+        pointD[0], pointD[1], pointD[2], 1.0f, 1.0f, normals[0].x, normals[0].y, normals[0].z,
 
-		// total, 12 triângulos
+        // Topo do quadrado (face superior)
+        pointE[0], pointE[1], pointE[2], 0.0f, 0.0f, normals[1].x, normals[1].y, normals[1].z,
+        pointF[0], pointF[1], pointF[2], 1.0f, 0.0f, normals[1].x, normals[1].y, normals[1].z,
+        pointG[0], pointG[1], pointG[2], 0.0f, 1.0f, normals[1].x, normals[1].y, normals[1].z,
+        
+        pointF[0], pointF[1], pointF[2], 1.0f, 0.0f, normals[1].x, normals[1].y, normals[1].z,
+        pointG[0], pointG[1], pointG[2], 0.0f, 1.0f, normals[1].x, normals[1].y, normals[1].z,
+        pointH[0], pointH[1], pointH[2], 1.0f, 1.0f, normals[1].x, normals[1].y, normals[1].z,
 
-		//Base do quadrado com 2 triângulos:
-		//  x         y           z          r          g         b
-        pointA[0], pointA[1], pointA[2], colorA[0], colorA[1], colorA[2], 0.0f, 0.0f,
-        pointB[0], pointB[1], pointB[2], colorB[0], colorB[1], colorB[2], 1.0f, 0.0f,
-        pointC[0], pointC[1], pointC[2], colorC[0], colorC[1], colorC[2], 0.0f, 1.0f,
-		//  x         y           z          r          g         b
-        pointB[0], pointB[1], pointB[2], colorB[0], colorB[1], colorB[2], 1.0f, 0.0f,
-        pointC[0], pointC[1], pointC[2], colorC[0], colorC[1], colorC[2], 0.0f, 1.0f,
-        pointD[0], pointD[1], pointD[2], colorD[0], colorD[1], colorD[2], 1.0f, 1.0f,
+        // Lado esquerdo
+        pointA[0], pointA[1], pointA[2], 0.0f, 0.0f, normals[2].x, normals[2].y, normals[2].z,
+        pointC[0], pointC[1], pointC[2], 1.0f, 0.0f, normals[2].x, normals[2].y, normals[2].z,
+        pointE[0], pointE[1], pointE[2], 0.0f, 1.0f, normals[2].x, normals[2].y, normals[2].z,
+        
+        pointC[0], pointC[1], pointC[2], 1.0f, 0.0f, normals[2].x, normals[2].y, normals[2].z,
+        pointE[0], pointE[1], pointE[2], 0.0f, 1.0f, normals[2].x, normals[2].y, normals[2].z,
+        pointG[0], pointG[1], pointG[2], 1.0f, 1.0f, normals[2].x, normals[2].y, normals[2].z,
 
-		// //Topo do quadrado com 2 triângulos:
-		// //  x       y           z          r          g         b
-        pointE[0], pointE[1], pointE[2], colorE[0], colorE[1], colorE[2], 0.0f, 0.0f,
-        pointF[0], pointF[1], pointF[2], colorF[0], colorF[1], colorF[2], 1.0f, 0.0f,
-        pointG[0], pointG[1], pointG[2], colorG[0], colorG[1], colorG[2], 0.0f, 1.0f,
-		//  x         y           z          r          g         b
-        pointF[0], pointF[1], pointF[2], colorF[0], colorF[1], colorF[2], 1.0f, 0.0f,
-        pointG[0], pointG[1], pointG[2], colorG[0], colorG[1], colorG[2], 0.0f, 1.0f,
-        pointH[0], pointH[1], pointH[2], colorH[0], colorH[1], colorH[2], 1.0f, 1.0f,
+        // Lado direito
+        pointB[0], pointB[1], pointB[2], 0.0f, 0.0f, normals[3].x, normals[3].y, normals[3].z,
+        pointD[0], pointD[1], pointD[2], 1.0f, 0.0f, normals[3].x, normals[3].y, normals[3].z,
+        pointF[0], pointF[1], pointF[2], 0.0f, 1.0f, normals[3].x, normals[3].y, normals[3].z,
+        
+        pointD[0], pointD[1], pointD[2], 1.0f, 0.0f, normals[3].x, normals[3].y, normals[3].z,
+        pointF[0], pointF[1], pointF[2], 0.0f, 1.0f, normals[3].x, normals[3].y, normals[3].z,
+        pointH[0], pointH[1], pointH[2], 1.0f, 1.0f, normals[3].x, normals[3].y, normals[3].z,
 
-		// Lado esquerdo com  2 triângulos:
-		//  x         y           z          r          g         b
-        pointA[0], pointA[1], pointA[2], colorA[0], colorA[1], colorA[2], 0.0f, 0.0f,
-        pointC[0], pointC[1], pointC[2], colorC[0], colorC[1], colorC[2], 1.0f, 0.0f,
-        pointE[0], pointE[1], pointE[2], colorE[0], colorE[1], colorE[2], 0.0f, 1.0f,
-		// //  x         y           z          r          g      b
-        pointC[0], pointC[1], pointC[2], colorC[0], colorC[1], colorC[2], 1.0f, 0.0f,
-        pointE[0], pointE[1], pointE[2], colorE[0], colorE[1], colorE[2], 0.0f, 1.0f,
-        pointG[0], pointG[1], pointG[2], colorG[0], colorG[1], colorG[2], 1.0f, 1.0f,
+        // Frente
+        pointC[0], pointC[1], pointC[2], 0.0f, 0.0f, normals[4].x, normals[4].y, normals[4].z,
+        pointD[0], pointD[1], pointD[2], 1.0f, 0.0f, normals[4].x, normals[4].y, normals[4].z,
+        pointG[0], pointG[1], pointG[2], 0.0f, 1.0f, normals[4].x, normals[4].y, normals[4].z,
+        
+        pointD[0], pointD[1], pointD[2], 1.0f, 0.0f, normals[4].x, normals[4].y, normals[4].z,
+        pointG[0], pointG[1], pointG[2], 0.0f, 1.0f, normals[4].x, normals[4].y, normals[4].z,
+        pointH[0], pointH[1], pointH[2], 1.0f, 1.0f, normals[4].x, normals[4].y, normals[4].z,
 
-		// Lado direito com  2 triângulos:
-		//  x         y           z          r          g         b
-        pointB[0], pointB[1], pointB[2], colorB[0], colorB[1], colorB[2], 0.0f, 0.0f,
-        pointD[0], pointD[1], pointD[2], colorD[0], colorD[1], colorD[2], 1.0f, 0.0f,
-        pointF[0], pointF[1], pointF[2], colorF[0], colorF[1], colorF[2], 0.0f, 1.0f,
-		//  x         y           z          r          g         b
-        pointD[0], pointD[1], pointD[2], colorD[0], colorD[1], colorD[2], 1.0f, 0.0f,
-        pointF[0], pointF[1], pointF[2], colorF[0], colorF[1], colorF[2], 0.0f, 1.0f,
-        pointH[0], pointH[1], pointH[2], colorH[0], colorH[1], colorH[2], 1.0f, 1.0f,
+        // Trás
+        pointA[0], pointA[1], pointA[2], 0.0f, 0.0f, normals[5].x, normals[5].y, normals[5].z,
+        pointB[0], pointB[1], pointB[2], 1.0f, 0.0f, normals[5].x, normals[5].y, normals[5].z,
+        pointE[0], pointE[1], pointE[2], 0.0f, 1.0f, normals[5].x, normals[5].y, normals[5].z,
+        
+        pointB[0], pointB[1], pointB[2], 1.0f, 0.0f, normals[5].x, normals[5].y, normals[5].z,
+        pointE[0], pointE[1], pointE[2], 0.0f, 1.0f, normals[5].x, normals[5].y, normals[5].z,
+        pointF[0], pointF[1], pointF[2], 1.0f, 1.0f, normals[5].x, normals[5].y, normals[5].z
+    };
 
-		// Frente com 2 triângulos
-		//  x         y           z          r          g         b
-		pointC[0], pointC[1], pointC[2], colorC[0], colorC[1], colorC[2], 0.0f, 0.0f,
-		pointD[0], pointD[1], pointD[2], colorD[0], colorD[1], colorD[2], 1.0f, 0.0f,
-		pointG[0], pointG[1], pointG[2], colorG[0], colorG[1], colorG[2], 0.0f, 1.0f,
-		//  x         y           z          r          g         b	
-		pointD[0], pointD[1], pointD[2], colorD[0], colorD[1], colorD[2], 1.0f, 0.0f,
-		pointG[0], pointG[1], pointG[2], colorG[0], colorG[1], colorG[2], 0.0f, 1.0f,
-		pointH[0], pointH[1], pointH[2], colorH[0], colorH[1], colorH[2], 1.0f, 1.0f,
-
-		// Trás com 2 triângulos
-		//  x         y           z          r          g         b
-		pointA[0], pointA[1], pointA[2], colorA[0], colorA[1], colorA[2], 0.0f, 0.0f,
-		pointB[0], pointB[1], pointB[2], colorB[0], colorB[1], colorB[2], 1.0f, 0.0f,
-		pointE[0], pointE[1], pointE[2], colorE[0], colorE[1], colorE[2], 0.0f, 1.0f,
-		//  x         y           z          r          g         b
-		pointB[0], pointB[1], pointB[2], colorB[0], colorB[1], colorB[2], 1.0f, 0.0f,
-		pointE[0], pointE[1], pointE[2], colorE[0], colorE[1], colorE[2], 0.0f, 1.0f,
-		pointF[0], pointF[1], pointF[2], colorF[0], colorF[1], colorF[2], 1.0f, 1.0f
-	};
-
-	GLuint VBO, VAO;
-
-    // Gera o VAO e o VBO
+    GLuint VBO, VAO;
     glGenVertexArrays(1, &VAO);
     glGenBuffers(1, &VBO);
 
-    // Vincula o VAO
     glBindVertexArray(VAO);
-
-    // Vincula o VBO e envia os dados dos vértices
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
@@ -468,15 +515,14 @@ int setupGeometry()
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid*)0);
     glEnableVertexAttribArray(0);
 
-    // - Cor (location = 1)
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid*)(3 * sizeof(GLfloat)));
+    // - Coordenadas de textura (location = 1)
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid*)(3 * sizeof(GLfloat)));
     glEnableVertexAttribArray(1);
 
-    // - Coordenadas de textura (location = 2)
-    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid*)(6 * sizeof(GLfloat)));
+    // - Normal (location = 2)
+    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid*)(5 * sizeof(GLfloat)));
     glEnableVertexAttribArray(2);
 
-    // Desvincula o VAO e o VBO
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
 
