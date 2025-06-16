@@ -19,6 +19,9 @@ Repositório de exemplos de códigos em C++ utilizando OpenGL moderna (3.3+) cri
   
 - **15/06/2025**
   -> DESAFIO MÓDULO 5: Adicionando uma câmera em primeira pessoa
+
+- **15/06/2025**
+-> DESAFIO MÓDULO 6: Definindo trajetórias para alguns objetos
   
 ---
 
@@ -55,6 +58,12 @@ Repositório de exemplos de códigos em C++ utilizando OpenGL moderna (3.3+) cri
 ### - Tarefa 5: Adicionando uma câmera em primeira pessoa
 
 ![Print - Tarefa 5](print_tarefa5.gif)
+
+---
+
+### - Tarefa 6: Definindo trajetórias para alguns objetos
+
+![Print - Tarefa 6](print_tarefa6.gif)
 
 ---
 executando o projeto:

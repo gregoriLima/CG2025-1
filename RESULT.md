@@ -27,3 +27,9 @@
 ### - Tarefa 5: Adicionando uma câmera em primeira pessoa
 
 ![Print - Tarefa 5](print_tarefa5.gif)
+
+---
+
+### - Tarefa 6: Adicionando uma câmera em primeira pessoa
+
+![Print - Tarefa 6](print_tarefa6.gif)
