@@ -17,6 +17,9 @@ Repositório de exemplos de códigos em C++ utilizando OpenGL moderna (3.3+) cri
 - **31/05/2025**
   -> DESAFIO MÓDULO 4: Adicionando iluminação (modelo Phong)
   
+- **15/06/2025**
+  -> DESAFIO MÓDULO 5: Adicionando uma câmera em primeira pessoa
+  
 ---
 
 
@@ -46,6 +49,12 @@ Repositório de exemplos de códigos em C++ utilizando OpenGL moderna (3.3+) cri
 ### - Tarefa 4: Adicionando Iluminação
 
 ![Print - Tarefa 4](print_tarefa4.gif)
+
+---
+
+### - Tarefa 5: Adicionando uma câmera em primeira pessoa
+
+![Print - Tarefa 5](print_tarefa5.gif)
 
 ---
 executando o projeto:

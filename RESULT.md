@@ -21,3 +21,9 @@
 ### - Tarefa 4: Adicionando Iluminação
 
 ![Print - Tarefa 4](print_tarefa4.gif)
+
+---
+
+### - Tarefa 5: Adicionando uma câmera em primeira pessoa
+
+![Print - Tarefa 5](print_tarefa5.gif)
